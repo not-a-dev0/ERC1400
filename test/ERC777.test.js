@@ -1,16 +1,20 @@
 import shouldFail from 'openzeppelin-solidity/test/helpers/shouldFail.js';
 
-const ERC777 = artifacts.require('ERC777');
+const ERC777 = artifacts.require('ERC777Mock');
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const ZERO_BYTE = '0x';
 
+const CERTIFICATE_SIGNER = '0xe31C41f0f70C5ff39f73B4B94bcCD767b3071630';
+
 const initialSupply = 1000000000;
 
 contract('ERC777', function ([owner, operator, defaultOperator, investor, recipient, unknown]) {
+  // BASIC FUNCTIONNALITIES
+
   describe('ERC777 functionalities', function () {
     beforeEach(async function () {
-      this.token = await ERC777.new('ERC777Token', 'DAU', 1, [defaultOperator]);
+      this.token = await ERC777.new('ERC777Token', 'DAU', 1, [defaultOperator], CERTIFICATE_SIGNER);
     });
 
     describe('name', function () {
@@ -78,49 +82,113 @@ contract('ERC777', function ([owner, operator, defaultOperator, investor, recipi
       describe('when sender authorizes an operator', function () {
         it('authorizes the operator', async function () {
           assert(!(await this.token.isOperatorFor(operator, investor)));
-          assert(await this.token.isOperatorFor(defaultOperator, investor));
-
           await this.token.authorizeOperator(operator, { from: investor });
-
           assert(await this.token.isOperatorFor(operator, investor));
-          assert(await this.token.isOperatorFor(defaultOperator, investor));
         });
       });
-      // describe('when sender authorizes himself', function () {
-      //   it('reverts', async function () {
-      //     await shouldFail.reverting(this.token.authorizeOperator(investor, { from: investor }));
-      //   });
-      // });
     });
 
     describe('revokeOperator', function () {
       describe('when sender revokes an operator', function () {
-        it('revokes the operator', async function () {
+        it('revokes the operator (when operator is not the default operator)', async function () {
           assert(!(await this.token.isOperatorFor(operator, investor)));
-          assert(await this.token.isOperatorFor(defaultOperator, investor));
-
           await this.token.authorizeOperator(operator, { from: investor });
-
           assert(await this.token.isOperatorFor(operator, investor));
-          assert(await this.token.isOperatorFor(defaultOperator, investor));
 
           await this.token.revokeOperator(operator, { from: investor });
 
           assert(!(await this.token.isOperatorFor(operator, investor)));
+        });
+        it('revokes the operator (when operator is the default operator)', async function () {
           assert(await this.token.isOperatorFor(defaultOperator, investor));
-
           await this.token.revokeOperator(defaultOperator, { from: investor });
-
-          assert(!(await this.token.isOperatorFor(operator, investor)));
           assert(!(await this.token.isOperatorFor(defaultOperator, investor)));
         });
       });
-      // describe('when sender revokes himself', function () {
-      //   it('reverts', async function () {
-      //     await shouldFail.reverting(this.token.revokeOperator(investor, { from: investor }));
-      //   });
-      // });
     });
+
+    describe('isOperatorFor', function () {
+      it('when operator is tokenHolder', async function () {
+        assert(await this.token.isOperatorFor(investor, investor));
+      });
+      it('when operator is authorized by tokenHolder', async function () {
+        await this.token.authorizeOperator(operator, { from: investor });
+        assert(await this.token.isOperatorFor(operator, investor));
+      });
+      it('when operator is defaultOperator', async function () {
+        assert(await this.token.isOperatorFor(defaultOperator, investor));
+      });
+      it('when is a revoked operator', async function () {
+        await this.token.revokeOperator(defaultOperator, { from: investor });
+        assert(!(await this.token.isOperatorFor(defaultOperator, investor)));
+      });
+    });
+
+    // DEFAULTOPERATOR
+
+    describe('addDefaultOperator', function () {
+      describe('when the caller is the contract owner', function () {
+        describe('when the operator is not already a default operator', function () {
+          it('adds the operator to default operators', async function () {
+            const defaultOperators1 = await this.token.defaultOperators();
+            assert.equal(defaultOperators1.length, 1);
+            assert.equal(defaultOperators1[0], defaultOperator);
+            await this.token.addDefaultOperator(operator, { from: owner });
+            const defaultOperators2 = await this.token.defaultOperators();
+            assert.equal(defaultOperators2.length, 2);
+            assert.equal(defaultOperators2[0], defaultOperator);
+            assert.equal(defaultOperators2[1], operator);
+            assert(await this.token.isOperatorFor(operator, unknown));
+          });
+        });
+        describe('when the operator is already a default operator', function () {
+          it('reverts', async function () {
+            await this.token.addDefaultOperator(operator, { from: owner });
+            const defaultOperators = await this.token.defaultOperators();
+            assert.equal(defaultOperators.length, 2);
+            assert.equal(defaultOperators[0], defaultOperator);
+            assert.equal(defaultOperators[1], operator);
+            await shouldFail.reverting(this.token.addDefaultOperator(operator, { from: owner }));
+          });
+        });
+      });
+      describe('when the caller is not the contract owner', function () {
+        it('reverts', async function () {
+          await shouldFail.reverting(this.token.addDefaultOperator(operator, { from: unknown }));
+        });
+      });
+    });
+
+    describe('removeDefaultOperator', function () {
+      describe('when the caller is the contract owner', function () {
+        describe('when the operator is already a default operator', function () {
+          it('removes the operator from default operators', async function () {
+            const defaultOperators1 = await this.token.defaultOperators();
+            assert.equal(defaultOperators1.length, 1);
+            assert.equal(defaultOperators1[0], defaultOperator);
+            await this.token.removeDefaultOperator(defaultOperator, { from: owner });
+            const defaultOperators2 = await this.token.defaultOperators();
+            assert.equal(defaultOperators2.length, 0);
+            assert(!(await this.token.isOperatorFor(defaultOperator, unknown)));
+          });
+        });
+        describe('when the operator is not already a default operator', function () {
+          it('reverts', async function () {
+            const defaultOperators = await this.token.defaultOperators();
+            assert.equal(defaultOperators.length, 1);
+            assert.equal(defaultOperators[0], defaultOperator);
+            await shouldFail.reverting(this.token.removeDefaultOperator(operator, { from: owner }));
+          });
+        });
+      });
+      describe('when the caller is not the contract owner', function () {
+        it('reverts', async function () {
+          await shouldFail.reverting(this.token.removeDefaultOperator(defaultOperator, { from: unknown }));
+        });
+      });
+    });
+
+    // MINT
 
     describe('mint', function () {
       describe('when the caller is a minter', function () {
@@ -166,7 +234,7 @@ contract('ERC777', function ([owner, operator, defaultOperator, investor, recipi
         });
         describe('when the amount is not a multiple of the granularity', function () {
           it('reverts', async function () {
-            this.token = await ERC777.new('ERC777Token', 'DAU', 2, []);
+            this.token = await ERC777.new('ERC777Token', 'DAU', 2, [], CERTIFICATE_SIGNER);
             await shouldFail.reverting(this.token.mint(investor, 3, '', { from: owner }));
           });
         });
@@ -177,6 +245,22 @@ contract('ERC777', function ([owner, operator, defaultOperator, investor, recipi
         });
       });
     });
+
+    // OPERATORMINT
+
+    describe('operatorMint', function () {
+      describe('when the caller is a minter', function () {
+        describe('when the amount is a multiple of the granularity', function () {
+          describe('when the recipient is not the zero address', function () {
+            it('mints the requested amount', async function () {
+              await this.token.operatorMint(investor, initialSupply, '', '', { from: owner });
+            });
+          });
+        });
+      });
+    });
+
+    // SENDTO
 
     describe('sendTo', function () {
       const to = recipient;
@@ -250,12 +334,14 @@ contract('ERC777', function ([owner, operator, defaultOperator, investor, recipi
       });
       describe('when the amount is not a multiple of the granularity', function () {
         it('reverts', async function () {
-          this.token = await ERC777.new('ERC777Token', 'DAU', 2, []);
+          this.token = await ERC777.new('ERC777Token', 'DAU', 2, [], CERTIFICATE_SIGNER);
           await this.token.mint(investor, initialSupply, '', { from: owner });
           await shouldFail.reverting(this.token.sendTo(to, 3, '', { from: investor }));
         });
       });
     });
+
+    // OPERATORSENDTO
 
     describe('operatorSendTo', function () {
       const to = recipient;
@@ -347,7 +433,7 @@ contract('ERC777', function ([owner, operator, defaultOperator, investor, recipi
         });
         describe('when the amount is not a multiple of the granularity', function () {
           it('reverts', async function () {
-            this.token = await ERC777.new('ERC777Token', 'DAU', 2, []);
+            this.token = await ERC777.new('ERC777Token', 'DAU', 2, [], CERTIFICATE_SIGNER);
             await this.token.mint(investor, initialSupply, '', { from: owner });
             await shouldFail.reverting(this.token.operatorSendTo(investor, to, 3, '', '', { from: operator }));
           });
@@ -360,6 +446,8 @@ contract('ERC777', function ([owner, operator, defaultOperator, investor, recipi
         });
       });
     });
+
+    // BURN
 
     describe('burn', function () {
       beforeEach(async function () {
@@ -414,12 +502,14 @@ contract('ERC777', function ([owner, operator, defaultOperator, investor, recipi
       });
       describe('when the amount is not a multiple of the granularity', function () {
         it('reverts', async function () {
-          this.token = await ERC777.new('ERC777Token', 'DAU', 2, []);
+          this.token = await ERC777.new('ERC777Token', 'DAU', 2, [], CERTIFICATE_SIGNER);
           await this.token.mint(investor, initialSupply, '', { from: owner });
           await shouldFail.reverting(this.token.burn(3, '', { from: investor }));
         });
       });
     });
+
+    // OPERATORBURN
 
     describe('operatorBurn', function () {
       beforeEach(async function () {
@@ -435,7 +525,7 @@ contract('ERC777', function ([owner, operator, defaultOperator, investor, recipi
             const amount = initialSupply + 1;
 
             it('reverts', async function () {
-              await shouldFail.reverting(this.token.operatorBurn(investor, amount, '', { from: operator }));
+              await shouldFail.reverting(this.token.operatorBurn(investor, amount, '', '', { from: operator }));
             });
           });
 
@@ -445,7 +535,7 @@ contract('ERC777', function ([owner, operator, defaultOperator, investor, recipi
             it('burns the requested amount from operator address', async function () {
               await this.token.sendTo(operator, amount, '', { from: investor });
 
-              await this.token.operatorBurn(ZERO_ADDRESS, amount, '', { from: operator });
+              await this.token.operatorBurn(ZERO_ADDRESS, amount, '', '', { from: operator });
               const senderBalance = await this.token.balanceOf(operator);
               assert.equal(senderBalance, initialSupply - amount);
             });
@@ -455,13 +545,13 @@ contract('ERC777', function ([owner, operator, defaultOperator, investor, recipi
             const amount = initialSupply;
 
             it('burns the requested amount', async function () {
-              await this.token.operatorBurn(investor, amount, '', { from: operator });
+              await this.token.operatorBurn(investor, amount, '', '', { from: operator });
               const senderBalance = await this.token.balanceOf(investor);
               assert.equal(senderBalance, initialSupply - amount);
             });
 
             it('emits a burned event [with ERC20 retrocompatibility]', async function () {
-              const { logs } = await this.token.operatorBurn(investor, amount, '', { from: operator });
+              const { logs } = await this.token.operatorBurn(investor, amount, '', '', { from: operator });
 
               assert.equal(logs.length, 2);
               assert.equal(logs[0].event, 'Burned');
@@ -477,7 +567,7 @@ contract('ERC777', function ([owner, operator, defaultOperator, investor, recipi
             });
             it('emits a burned event [without ERC20 retrocompatibility]', async function () {
               await this.token.setERC20compatibility(false, { from: owner });
-              const { logs } = await this.token.operatorBurn(investor, amount, '', { from: operator });
+              const { logs } = await this.token.operatorBurn(investor, amount, '', '', { from: operator });
 
               assert.equal(logs.length, 1);
               assert.equal(logs[0].event, 'Burned');
@@ -495,17 +585,19 @@ contract('ERC777', function ([owner, operator, defaultOperator, investor, recipi
       });
       describe('when the amount is not a multiple of the granularity', function () {
         it('reverts', async function () {
-          this.token = await ERC777.new('ERC777Token', 'DAU', 2, []);
+          this.token = await ERC777.new('ERC777Token', 'DAU', 2, [], CERTIFICATE_SIGNER);
           await this.token.mint(investor, initialSupply, '', { from: owner });
-          await shouldFail.reverting(this.token.operatorBurn(investor, 3, '', { from: operator }));
+          await shouldFail.reverting(this.token.operatorBurn(investor, 3, '', '', { from: operator }));
         });
       });
     });
   });
 
+  // ERC20 RETROCOMPATIBILITY
+
   describe('ERC20 retrocompatibility', function () {
     beforeEach(async function () {
-      this.token = await ERC777.new('ERC777Token', 'DAU', 1, [defaultOperator]);
+      this.token = await ERC777.new('ERC777Token', 'DAU', 1, [defaultOperator], CERTIFICATE_SIGNER);
     });
 
     describe('decimals', function () {
@@ -619,7 +711,7 @@ contract('ERC777', function ([owner, operator, defaultOperator, investor, recipi
         });
         describe('when the amount is not a multiple of the granularity', function () {
           it('reverts', async function () {
-            this.token = await ERC777.new('ERC777Token', 'DAU', 2, []);
+            this.token = await ERC777.new('ERC777Token', 'DAU', 2, [], CERTIFICATE_SIGNER);
             await this.token.mint(investor, initialSupply, '', { from: owner });
             await shouldFail.reverting(this.token.transfer(to, 3, { from: investor }));
           });
@@ -721,7 +813,7 @@ contract('ERC777', function ([owner, operator, defaultOperator, investor, recipi
           });
           describe('when the amount is not a multiple of the granularity', function () {
             it('reverts', async function () {
-              this.token = await ERC777.new('ERC777Token', 'DAU', 2, []);
+              this.token = await ERC777.new('ERC777Token', 'DAU', 2, [], CERTIFICATE_SIGNER);
               await this.token.mint(investor, initialSupply, '', { from: owner });
               await shouldFail.reverting(this.token.transferFrom(investor, to, 3, { from: operator }));
             });

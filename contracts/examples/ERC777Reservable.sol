@@ -4,15 +4,12 @@
 */
 pragma solidity ^0.4.24;
 
-/* import { Ownable as ozs_Ownable } from "openzeppelin-solidity/contracts/ownership/Ownable.sol"; */
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
-import "contract-certificate-controller/contracts/CertificateController.sol";
-
-import "./ERC777.sol";
+import "../token/ERC777/ERC777Mintable.sol";
 
 
-contract ERC777Reservable is CertificateController, ERC777 {
+contract ERC777Reservable is ERC777Mintable {
   using SafeMath for uint256;
 
   enum Status { Created, Validated, Cancelled }
@@ -54,8 +51,7 @@ contract ERC777Reservable is CertificateController, ERC777 {
     address certificateSigner //0xe31C41f0f70C5ff39f73B4B94bcCD767b3071630
   )
     public
-    CertificateController(certificateSigner)
-    ERC777(name, symbol, granularity, defaultOperators)
+    ERC777(name, symbol, granularity, defaultOperators, certificateSigner)
   {
     _minShares = minShares;
     _burnLeftOver = burnLeftOver;
@@ -147,7 +143,7 @@ contract ERC777Reservable is CertificateController, ERC777 {
     }
 
     if (_burnLeftOver) {
-      _burn(this, this, _balances[this], "");
+      _burn(this, this, _balances[this], "", "");
     }
 
     _saleEnded = true;

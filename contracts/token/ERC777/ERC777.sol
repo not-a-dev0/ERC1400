@@ -2,9 +2,6 @@
  * This code has not been reviewed.
  * Do not use or deploy this code before reviewing it personally first.
  *
- * Potential issues:
- * - Presence of 'data' field in burn and operatorBurn
- *
  * Optimizations:
  * - Authorize / revoke operators --> add a nested if condition
  */
@@ -12,18 +9,18 @@ pragma solidity ^0.4.24;
 
 
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
+import "contract-certificate-controller/contracts/CertificateController.sol";
 
 import "./IERC777.sol";
-import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
-import "openzeppelin-solidity/contracts/access/roles/MinterRole.sol";
-/* import "openzeppelin-solidity/contracts/ownership/Ownable.sol"; */
-import { Ownable as ozs_Ownable } from "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 import "../ERC820/ERC820Client.sol";
+
 import "./IERC777TokensSender.sol";
 import "./IERC777TokensRecipient.sol";
 
 
-contract ERC777 is IERC777, IERC20, ERC820Client, MinterRole, ozs_Ownable {
+contract ERC777 is IERC777, IERC20, Ownable, ERC820Client, CertificateController {
   using SafeMath for uint256;
 
   string internal _name;
@@ -53,8 +50,6 @@ contract ERC777 is IERC777, IERC20, ERC820Client, MinterRole, ozs_Ownable {
   mapping(address => bool) internal _isDefaultOperator;
   /****************************************************************************/
 
-
-
   bool internal _erc20compatible;
   bool internal _erc820compatible;
 
@@ -62,9 +57,11 @@ contract ERC777 is IERC777, IERC20, ERC820Client, MinterRole, ozs_Ownable {
     string name,
     string symbol,
     uint256 granularity,
-    address[] defaultOperators
+    address[] defaultOperators,
+    address certificateSigner
   )
     public
+    CertificateController(certificateSigner)
   {
     _name = name;
     _symbol = symbol;
@@ -97,8 +94,8 @@ contract ERC777 is IERC777, IERC20, ERC820Client, MinterRole, ozs_Ownable {
   function _setERC20compatibility(bool erc20compatible) internal {
     _erc20compatible = erc20compatible;
     if(_erc20compatible) {
-      if(_erc820compatible) { 
-        setInterfaceImplementation("ERC20Token", this); 
+      if(_erc820compatible) {
+        setInterfaceImplementation("ERC20Token", this);
         }
     } else {
       if(_erc820compatible) { setInterfaceImplementation("ERC20Token", address(0)); }
@@ -225,9 +222,12 @@ contract ERC777 is IERC777, IERC20, ERC820Client, MinterRole, ozs_Ownable {
    * @dev Send the amount of tokens from the address msg.sender to the address to.
    * @param to Token recipient.
    * @param amount Number of tokens to send.
-   * @param data Information attached to the send, by the token holder.
+   * @param data Information attached to the send, by the token holder (conditional ownership certificate).
    */
-  function sendTo(address to, uint256 amount, bytes data) external {
+  function sendTo(address to, uint256 amount, bytes data)
+    external
+    isValidCertificate(data)
+  {
     _sendTo(msg.sender, msg.sender, to, amount, data, "", true);
   }
 
@@ -238,9 +238,12 @@ contract ERC777 is IERC777, IERC20, ERC820Client, MinterRole, ozs_Ownable {
    * @param to Token recipient.
    * @param amount Number of tokens to send.
    * @param data Information attached to the send, by the token holder.
-   * @param operatorData Information attached to the send by the operator.
+   * @param operatorData Information attached to the send by the operator (conditional ownership certificate).
    */
-  function operatorSendTo(address from, address to, uint256 amount, bytes data, bytes operatorData) external {
+  function operatorSendTo(address from, address to, uint256 amount, bytes data, bytes operatorData)
+    external
+    isValidCertificate(operatorData)
+  {
     address _from = (from == address(0)) ? msg.sender : from;
 
     require(_isOperatorFor(msg.sender, _from));
@@ -252,10 +255,13 @@ contract ERC777 is IERC777, IERC20, ERC820Client, MinterRole, ozs_Ownable {
    * [ERC777 INTERFACE (12/13)]
    * @dev Burn the amount of tokens from the address msg.sender.
    * @param amount Number of tokens to burn.
-   * @param data Information attached to the burn, by the token holder.
+   * @param data Information attached to the burn, by the token holder (conditional ownership certificate).
    */
-  function burn(uint256 amount, bytes data) external {
-    _burn(msg.sender, msg.sender, amount, data);
+  function burn(uint256 amount, bytes data)
+    external
+    isValidCertificate(data)
+  {
+    _burn(msg.sender, msg.sender, amount, data, "");
   }
 
   /**
@@ -263,14 +269,18 @@ contract ERC777 is IERC777, IERC20, ERC820Client, MinterRole, ozs_Ownable {
    * @dev Burn the amount of tokens on behalf of the address from.
    * @param from Token holder whose tokens will be burned (or address(0) to set from to msg.sender).
    * @param amount Number of tokens to burn.
-   * @param operatorData Information attached to the burn by the operator.
+   * @param data Information attached to the burn, and intended for the owner (from).
+   * @param operatorData Information attached to the burn by the operator (conditional ownership certificate).
    */
-  function operatorBurn(address from, uint256 amount, bytes operatorData) external {
+  function operatorBurn(address from, uint256 amount, bytes data, bytes operatorData)
+    external
+    isValidCertificate(operatorData)
+  {
     address _from = (from == address(0)) ? msg.sender : from;
 
     require(_isOperatorFor(msg.sender, _from));
 
-    _burn(msg.sender, _from, amount, operatorData);
+    _burn(msg.sender, _from, amount, data, operatorData);
   }
 
   /**
@@ -354,21 +364,22 @@ contract ERC777 is IERC777, IERC20, ERC820Client, MinterRole, ozs_Ownable {
    * @param operator The address performing the burn.
    * @param from Token holder whose tokens will be burned.
    * @param amount Number of tokens to burn.
+   * @param data Information attached to the burn, and intended for the owner (from).
    * @param operatorData Information attached to the burn by the operator.
    */
-  function _burn(address operator, address from, uint256 amount, bytes operatorData)
+  function _burn(address operator, address from, uint256 amount, bytes data, bytes operatorData)
     internal
   {
     require(_isMultiple(amount));
     require(from != address(0));
     require(_balances[from] >= amount);
 
-    _callSender(operator, from, address(0), amount, "", operatorData);
+    _callSender(operator, from, address(0), amount, data, operatorData);
 
     _balances[from] = _balances[from].sub(amount);
     _totalSupply = _totalSupply.sub(amount);
 
-    emit Burned(operator, from, amount, operatorData);
+    emit Burned(operator, from, amount, data, operatorData);
 
     if(_erc20compatible) {
       emit Transfer(from, address(0), amount);  //  ERC20 backwards compatibility
@@ -457,7 +468,7 @@ contract ERC777 is IERC777, IERC20, ERC820Client, MinterRole, ozs_Ownable {
   function _removeDefaultOperator(address operator) internal {
     require(_isDefaultOperator[operator]);
 
-    for (uint i = 0; i<_defaultOperators.length - 1; i++){
+    for (uint i = 0; i<_defaultOperators.length; i++){
       if(_defaultOperators[i] == operator) {
         _defaultOperators[i] = _defaultOperators[_defaultOperators.length - 1];
         delete _defaultOperators[_defaultOperators.length-1];
@@ -470,30 +481,12 @@ contract ERC777 is IERC777, IERC20, ERC820Client, MinterRole, ozs_Ownable {
 
   /**
    * [NOT MANDATORY FOR ERC777 STANDARD]
-   * @dev Mint the amout of tokens for the recipient 'to'.
-   * @param to Token recipient.
-   * @param amount Number of tokens minted.
-   * @param data Information attached to the minting, and intended for the recipient (to).
-   */
-  function mint(address to, uint256 amount, bytes data)
-    external
-    onlyMinter
-    returns (bool)
-  {
-    _mint(msg.sender, to, amount, data, "");
-
-    return true;
-  }
-
-
-  /**
-   * [NOT MANDATORY FOR ERC777 STANDARD]
    * @dev Helper function actually performing the minting of tokens.
    * @param operator Address which triggered the mint.
    * @param to Token recipient.
    * @param amount Number of tokens minted.
    * @param data Information attached to the minting, and intended for the recipient (to).
-   * @param operatorData Information attached to the minting by the operator.
+   * @param operatorData Information attached to the send by the operator.
    */
   function _mint(address operator, address to, uint256 amount, bytes data, bytes operatorData)
   internal
@@ -552,6 +545,7 @@ contract ERC777 is IERC777, IERC20, ERC820Client, MinterRole, ozs_Ownable {
    * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
    * @param spender The address which will spend the funds.
    * @param value The amount of tokens to be spent.
+   * @return A boolean that indicates if the operation was successful.
    */
   function approve(address spender, uint256 value) external returns (bool) {
     require(_erc20compatible);
@@ -564,9 +558,10 @@ contract ERC777 is IERC777, IERC20, ERC820Client, MinterRole, ozs_Ownable {
 
   /**
    * [NOT MANDATORY FOR ERC777 STANDARD][OVERRIDES ERC20 METHOD]
-   * @dev Transfer token for a specified address
+   * @dev Transfer token for a specified address.
    * @param to The address to transfer to.
    * @param value The amount to be transferred.
+   * @return A boolean that indicates if the operation was successful.
    */
   function transfer(address to, uint256 value) external returns (bool) {
     require(_erc20compatible);
@@ -577,10 +572,11 @@ contract ERC777 is IERC777, IERC20, ERC820Client, MinterRole, ozs_Ownable {
 
   /**
    * [NOT MANDATORY FOR ERC777 STANDARD][OVERRIDES ERC20 METHOD]
-   * @dev Transfer tokens from one address to another
-   * @param from The address which you want to send tokens from
-   * @param to The address which you want to transfer to
-   * @param value The amount of tokens to be transferred
+   * @dev Transfer tokens from one address to another.
+   * @param from The address which you want to send tokens from.
+   * @param to The address which you want to transfer to.
+   * @param value The amount of tokens to be transferred.
+   * @return A boolean that indicates if the operation was successful.
    */
   function transferFrom(
     address from,
