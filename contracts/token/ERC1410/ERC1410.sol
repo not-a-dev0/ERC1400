@@ -189,7 +189,7 @@ contract ERC1410 is IERC1410, ERC777 {
     for (uint i = 0; i < tranches.length; i++) {
       require(_isOperatorFor(msg.sender, _from, _isControllable) || _isOperatorForTranche(tranches[i], msg.sender, _from));
 
-      destinationTranches[i] = _sendByTranche(tranches[i], msg.sender, from, to, amounts[i], data, operatorData);
+      destinationTranches[i] = _sendByTranche(tranches[i], msg.sender, _from, to, amounts[i], data, operatorData);
     }
 
     return destinationTranches;
@@ -462,49 +462,6 @@ contract ERC1410 is IERC1410, ERC777 {
   }
 
   /**
-   * [NOT MANDATORY FOR ERC1410 STANDARD][OVERRIDES ERC777 METHOD]
-   * @dev Transfer token for a specified address
-   * @param to The address to transfer to.
-   * @param value The amount to be transferred.
-   */
-  function transfer(address to, uint256 value) external returns (bool) {
-
-    _sendByDefaultTranches(msg.sender, msg.sender, to, value, "", "");
-
-    return true;
-  }
-
-  /**
-   * [NOT MANDATORY FOR ERC1410 STANDARD][OVERRIDES ERC777 METHOD]
-   * @dev Transfer tokens from one address to another
-   * @param from The address which you want to send tokens from
-   * @param to The address which you want to transfer to
-   * @param value The amount of tokens to be transferred
-   */
-  function transferFrom(
-    address from,
-    address to,
-    uint256 value
-  )
-    external
-    returns (bool)
-  {
-    address _from = (from == address(0)) ? msg.sender : from;
-    require( _isOperatorFor(msg.sender, _from, _isControllable)
-      || (value <= _allowed[_from][msg.sender])
-    );
-
-    if(_allowed[_from][msg.sender] >= value) {
-      _allowed[_from][msg.sender] = _allowed[_from][msg.sender].sub(value);
-    } else {
-      _allowed[_from][msg.sender] = 0;
-    }
-
-    _sendByDefaultTranches(msg.sender, _from, to, value, "", "");
-    return true;
-  }
-
-  /**
    * [NOT MANDATORY FOR ERC1410 STANDARD]
    * @dev Internal function to send tokens from a default tranches
    * @param operator The address performing the send.
@@ -526,52 +483,22 @@ contract ERC1410 is IERC1410, ERC777 {
   {
     require(_defaultTranches[from].length != 0);
 
-    bytes32[] memory _tranches;
-    uint256[] memory _amounts;
-
-    (_tranches, _amounts) = _getDefaultTranchesForAmount(from, amount);
-
-    require(_tranches.length == _amounts.length);
-
-    for (uint i = 0; i < _tranches.length; i++) {
-      _sendByTranche(_tranches[i], operator, from, to, _amounts[i], data, operatorData);
-      if(_amounts[i] == 0) {break;}
-    }
-  }
-
-  /**
-   * [NOT MANDATORY FOR ERC1410 STANDARD]
-   * @dev Internal function to get default tranches corresponding to an amount.
-   * @param tokenHolder Address for which the default tranches corresponding to amount are returned.
-   * @param amount Number of tokens to search for in tranches.
-   */
-  function _getDefaultTranchesForAmount(address tokenHolder, uint256 amount)
-    internal
-    view
-    returns(bytes32[] _tranches, uint256[] _amounts)
-  {
     uint256 _remainingAmount = amount;
     uint256 _localBalance;
 
-    if(_defaultTranches[tokenHolder].length != 0) {
-      for (uint i = 0; i < _defaultTranches[tokenHolder].length; i++) {
-        _localBalance = _balanceOfByTranche[tokenHolder][_defaultTranches[tokenHolder][i]];
-        if(_remainingAmount <= _localBalance) {
-          _tranches[i] = _defaultTranches[tokenHolder][i];
-          _amounts[i] = _remainingAmount;
-          _remainingAmount = 0;
-          break;
-        } else {
-          _tranches[i] = _defaultTranches[tokenHolder][i];
-          _amounts[i] = _localBalance;
-          _remainingAmount = _remainingAmount - _localBalance;
-        }
+    for (uint i = 0; i < _defaultTranches[from].length; i++) {
+      _localBalance = _balanceOfByTranche[from][_defaultTranches[from][i]];
+      if(_remainingAmount <= _localBalance) {
+        _sendByTranche(_defaultTranches[from][i], operator, from, to, _remainingAmount, data, operatorData);
+        _remainingAmount = 0;
+        break;
+      } else {
+        _sendByTranche(_defaultTranches[from][i], operator, from, to, _localBalance, data, operatorData);
+        _remainingAmount = _remainingAmount - _localBalance;
       }
     }
 
     require(_remainingAmount == 0);
-
-    return (_tranches, _amounts);
   }
 
   /**
