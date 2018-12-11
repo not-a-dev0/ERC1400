@@ -4,6 +4,7 @@
 # Dependency directory
 node_modules
 package-json.lock
+yarn-error.log
 
 # Generated files
 build
