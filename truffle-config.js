@@ -9,7 +9,7 @@ const providerWithMnemonic = (mnemonic, rpcEndpoint) => () =>
 
 const infuraProvider = network => providerWithMnemonic(
   process.env.MNEMONIC || '',
-  `https://${network}.infura.io/${process.env.INFURA_API_KEY}`
+  `https://${network}.infura.io/v3/${process.env.INFURA_API_KEY}`
 );
 
 const ropstenProvider = process.env.SOLIDITY_COVERAGE
@@ -26,6 +26,7 @@ module.exports = {
     ropsten: {
       provider: ropstenProvider,
       network_id: 3, // eslint-disable-line camelcase
+      gasPrice: 5000000000,
     },
     coverage: {
       host: 'localhost',
@@ -45,6 +46,12 @@ module.exports = {
         process.env.RPC_ENDPOINT
       ),
       network_id: parseInt(process.env.NETWORK_ID) || '*', // eslint-disable-line camelcase
+    },
+  },
+  solc: {
+    optimizer: {
+      enabled: true,
+      runs: 400,
     },
   },
 };

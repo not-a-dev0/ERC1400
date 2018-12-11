@@ -6,8 +6,6 @@ import "./ERC820ImplementerMock.sol";
 
 contract ERC777TokensSenderMock is IERC777TokensSender, ERC820ImplementerMock {
 
-  event Test1(bytes32 b1, bytes32 b2);
-
   constructor(string interfaceLabel)
     public
     ERC820ImplementerMock(interfaceLabel)
@@ -16,17 +14,20 @@ contract ERC777TokensSenderMock is IERC777TokensSender, ERC820ImplementerMock {
   }
 
   function canSend(
+    bytes32 tranche,
     address from,
     address to,
-    bytes32 tranche,
     uint amount,
-    bytes data
+    bytes data,
+    bytes operatorData
   )
     external
     view
     returns(bool)
   {
-    return true;
+    if(tranche != hex"00" || operatorData.length != 0){} // Line to avoid compilation warnings for unused variables.
+
+    return(_canSend(from, to, amount, data));
   }
 
   function tokensToSend(
@@ -37,7 +38,8 @@ contract ERC777TokensSenderMock is IERC777TokensSender, ERC820ImplementerMock {
     bytes data,
     bytes operatorData
   ) external {
-    require(_canSend(from, to, amount, data));
+    if(operator != address(0) || from != address(0) || to != address(0) || amount != 0 || data.length != 0 || operatorData.length != 0){} // Line to avoid compilation warnings for unused variables.
+    require(_canSend(from, to, amount, data), "A5:	Transfer Blocked - Sender not eligible");
   }
 
   function _canSend(
@@ -45,13 +47,14 @@ contract ERC777TokensSenderMock is IERC777TokensSender, ERC820ImplementerMock {
     address to,
     uint amount,
     bytes data
-  ) internal returns(bool) {
-    bytes32 sendRevert = 0x1111000000000000000000000000000000000000000000000000000000000000; // Default sender hook failure data for the mock only
+  ) internal pure returns(bool) {
+    if(from != address(0) || to != address(0) || amount != 0){} // Line to avoid compilation warnings for unused variables.
+
+    bytes32 sendRevert = 0x1100000000000000000000000000000000000000000000000000000000000000; // Default sender hook failure data for the mock only
     bytes32 data32;
     assembly {
         data32 := mload(add(data, 32))
     }
-    emit Test1(data32, sendRevert);
     if (data32 == sendRevert) {
       return false;
     } else {
