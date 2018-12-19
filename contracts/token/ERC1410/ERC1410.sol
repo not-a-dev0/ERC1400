@@ -23,27 +23,27 @@ contract ERC1410 is IERC1410, ERC777 {
   // Mapping from tranche to global balance of corresponding tranche.
   mapping (bytes32 => uint256) internal _totalSupplyByTranche;
 
-  // Mapping from investor to their tranches.
+  // Mapping from tokenHolder to their tranches.
   mapping (address => bytes32[]) internal _tranchesOf;
 
-  // Mapping from (investor, tranche) to balance of corresponding tranche.
+  // Mapping from (tokenHolder, tranche) to balance of corresponding tranche.
   mapping (address => mapping (bytes32 => uint256)) internal _balanceOfByTranche;
 
-  // Mapping from investor to their default tranches (for ERC777 and ERC20 backwards compatibility).
+  // Mapping from tokenHolder to their default tranches (for ERC777 and ERC20 compatibility).
   mapping (address => bytes32[]) internal _defaultTranches;
   /****************************************************************************/
 
   /**************** Mappings to find tranche operators ************************/
-  // Mapping from (investor, tranche, operator) to 'approved for tranche' status. [INVESTOR-SPECIFIC]
+  // Mapping from (tokenHolder, tranche, operator) to 'approved for tranche' status. [TOKEN-HOLDER-SPECIFIC]
   mapping (address => mapping (bytes32 => mapping (address => bool))) internal _trancheAuthorized;
 
-  // Mapping from (investor, tranche, operator) to 'revoked for tranche' status. [INVESTOR-SPECIFIC]
+  // Mapping from (tokenHolder, tranche, operator) to 'revoked for tranche' status. [TOKEN-HOLDER-SPECIFIC]
   mapping (address => mapping (bytes32 => mapping (address => bool))) internal _trancheRevokedDefaultOperator;
 
-  // Mapping from tranche to default operators for the tranche. [NOT INVESTOR-SPECIFIC]
+  // Mapping from tranche to default operators for the tranche. [NOT TOKEN-HOLDER-SPECIFIC]
   mapping (bytes32 => address[]) internal _defaultOperatorsByTranche;
 
-  // Mapping from (tranche, operator) to defaultOperatorByTranche status. [NOT INVESTOR-SPECIFIC]
+  // Mapping from (tranche, operator) to defaultOperatorByTranche status. [NOT TOKEN-HOLDER-SPECIFIC]
   mapping (bytes32 => mapping (address => bool)) internal _isDefaultOperatorByTranche;
   /****************************************************************************/
 
@@ -369,21 +369,26 @@ contract ERC1410 is IERC1410, ERC777 {
     _balanceOfByTranche[from][tranche] = _balanceOfByTranche[from][tranche].sub(amount);
     _totalSupplyByTranche[tranche] = _totalSupplyByTranche[tranche].sub(amount);
 
+    // If the balance of the TokenHolder's tranche is zero, finds and deletes the tranche.
     if(_balanceOfByTranche[from][tranche] == 0) {
       for (uint i = 0; i < _tranchesOf[from].length; i++) {
         if(_tranchesOf[from][i] == tranche) {
           _tranchesOf[from][i] = _tranchesOf[from][_tranchesOf[from].length - 1];
           delete _tranchesOf[from][_tranchesOf[from].length - 1];
           _tranchesOf[from].length--;
+          break;
         }
       }
     }
+
+    // If the total supply is zero, finds and deletes the tranche.
     if(_totalSupplyByTranche[tranche] == 0) {
       for (i = 0; i < _totalTranches.length; i++) {
         if(_totalTranches[i] == tranche) {
           _totalTranches[i] = _totalTranches[_totalTranches.length - 1];
           delete _totalTranches[_totalTranches.length - 1];
           _totalTranches.length--;
+          break;
         }
       }
     }
@@ -397,15 +402,17 @@ contract ERC1410 is IERC1410, ERC777 {
    * @param amount Number of tokens to send.
    */
   function _addTokenToTranche(address to, bytes32 tranche, uint256 amount) internal {
-    if(_balanceOfByTranche[to][tranche] == 0 && amount != 0) {
-      _tranchesOf[to].push(tranche);
-    }
-    _balanceOfByTranche[to][tranche] = _balanceOfByTranche[to][tranche].add(amount);
+    if(amount != 0) {
+      if(_balanceOfByTranche[to][tranche] == 0) {
+        _tranchesOf[to].push(tranche);
+      }
+      _balanceOfByTranche[to][tranche] = _balanceOfByTranche[to][tranche].add(amount);
 
-    if(_totalSupplyByTranche[tranche] == 0 && amount != 0) {
-      _totalTranches.push(tranche);
+      if(_totalSupplyByTranche[tranche] == 0) {
+        _totalTranches.push(tranche);
+      }
+      _totalSupplyByTranche[tranche] = _totalSupplyByTranche[tranche].add(amount);
     }
-    _totalSupplyByTranche[tranche] = _totalSupplyByTranche[tranche].add(amount);
   }
 
   /**
@@ -415,12 +422,10 @@ contract ERC1410 is IERC1410, ERC777 {
    * @param data Information attached to the send [Contains the destination tranche].
    * @return Destination tranche.
    */
-  function _getDestinationTranche(bytes data) internal pure returns(bytes32) {
-    bytes32 toTranche;
-    for (uint i = 0; i < 32; i++) {
-      toTranche |= bytes32(data[i] & 0xFF) >> (i * 8); // Keeps the 8 first bits of data[i] and shifts them from (i * 8 places)
+  function _getDestinationTranche(bytes data) internal pure returns(bytes32 toTranche) {
+    assembly {
+      toTranche := mload(add(data, 32))
     }
-    return toTranche;
   }
 
   /********************* ERC1410 OPTIONAL FUNCTIONS ***************************/
@@ -455,7 +460,7 @@ contract ERC1410 is IERC1410, ERC777 {
   function _removeDefaultOperatorByTranche(bytes32 tranche, address operator) internal {
     require(_isDefaultOperatorByTranche[tranche][operator], "Action Blocked - Not a default operator");
 
-    for (uint i = 0; i<_defaultOperatorsByTranche[tranche].length; i++){
+    for (uint i = 0; i < _defaultOperatorsByTranche[tranche].length; i++){
       if(_defaultOperatorsByTranche[tranche][i] == operator) {
         _defaultOperatorsByTranche[tranche][i] = _defaultOperatorsByTranche[tranche][_defaultOperatorsByTranche[tranche].length - 1];
         delete _defaultOperatorsByTranche[tranche][_defaultOperatorsByTranche[tranche].length-1];
@@ -564,5 +569,4 @@ contract ERC1410 is IERC1410, ERC777 {
 
     require(_remainingAmount == 0, "A8: Transfer Blocked - Token restriction");
   }
-
 }

@@ -9,6 +9,7 @@ import "openzeppelin-solidity/contracts/access/roles/MinterRole.sol";
 import "./IERC1400.sol";
 import "./token/ERC1410/ERC1410.sol";
 
+
 /**
  * @title ERC1400
  * @dev ERC1400 logic
@@ -184,51 +185,32 @@ contract ERC1400 is IERC1400, ERC1410, MinterRole {
     view
     returns (byte, bytes32, bytes32)
   {
-    byte reasonCode;
+    if(!_checkCertificate(data, 0, 0xfb913d14)) // 4 first bytes of keccak256(sendByTranche(bytes32,address,uint256,bytes))
+      return(hex"A3", "", tranche); // Transfer Blocked - Sender lockup period not ended
 
-    if(_checkCertificate(data, 0, 0xfb913d14)) { // 4 first bytes of keccak256(sendByTranche(bytes32,address,uint256,bytes))
+    if((_balances[msg.sender] < amount) || (_balanceOfByTranche[msg.sender][tranche] < amount))
+      return(hex"A4", "", tranche); // Transfer Blocked - Sender balance insufficient
 
-      if((_balances[msg.sender] >= amount) && (_balanceOfByTranche[msg.sender][tranche] >= amount)) {
+    if(to == address(0))
+      return(hex"A6", "", tranche); // Transfer Blocked - Receiver not eligible
 
-        if(to != address(0)) {
+    address senderImplementation;
+    address recipientImplementation;
+    senderImplementation = interfaceAddr(msg.sender, "ERC777TokensSender");
+    recipientImplementation = interfaceAddr(to, "ERC777TokensRecipient");
 
-          address senderImplementation;
-          address recipientImplementation;
-          senderImplementation = interfaceAddr(msg.sender, "ERC777TokensSender");
-          recipientImplementation = interfaceAddr(to, "ERC777TokensRecipient");
+    if((senderImplementation != address(0))
+      && !IERC777TokensSender(senderImplementation).canSend(tranche, msg.sender, to, amount, data, ""))
+      return(hex"A5", "", tranche); // Transfer Blocked - Sender not eligible
 
-          if((senderImplementation != address(0))
-            && !IERC777TokensSender(senderImplementation).canSend(tranche, msg.sender, to, amount, data, "")) {
+    if((recipientImplementation != address(0))
+      && !IERC777TokensRecipient(recipientImplementation).canReceive(tranche, msg.sender, to, amount, data, ""))
+      return(hex"A6", "", tranche); // Transfer Blocked - Receiver not eligible
 
-              reasonCode = hex"A5"; // Transfer Blocked - Sender not eligible
+    if(!_isMultiple(amount))
+      return(hex"A9", "", tranche); // Transfer Blocked - Token granularity
 
-          } else if((recipientImplementation != address(0))
-            && !IERC777TokensRecipient(recipientImplementation).canReceive(tranche, msg.sender, to, amount, data, "")) {
-
-              reasonCode = hex"A6"; // Transfer Blocked - Receiver not eligible
-
-          } else {
-            if(_isMultiple(amount)) {
-              reasonCode = hex"A2"; // Transfer Verified - Off-Chain approval for restricted token
-
-            } else {
-              reasonCode = hex"A9"; // Transfer Blocked - Token granularity
-            }
-          }
-
-        } else {
-          reasonCode = hex"A6"; // Transfer Blocked - Receiver not eligible
-        }
-
-      } else {
-        reasonCode = hex"A4"; // Transfer Blocked - Sender balance insufficient
-      }
-
-    } else {
-      reasonCode = hex"A3"; // Transfer Blocked - Sender lockup period not ended
-    }
-
-    return(reasonCode, "", tranche);
+    return(hex"A2", "", tranche);  // Transfer Verified - Off-Chain approval for restricted token
   }
 
   /********************** ERC1400 INTERNAL FUNCTIONS **************************/
@@ -292,7 +274,7 @@ contract ERC1400 is IERC1400, ERC1410, MinterRole {
   /**
    * [NOT MANDATORY FOR ERC1400 STANDARD]
    * @dev Definitely renounce the possibility to control tokens
-   * on behalf of investors.
+   * on behalf of tokenHolders.
    * Once set to false, '_isControllable' can never be set to 'true' again.
    */
   function renounceControl() external onlyOwner {
