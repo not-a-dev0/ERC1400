@@ -1,7 +1,6 @@
 pragma solidity ^0.4.24;
-import "../examples/ERC777ERC20.sol";
+import "../token/ERC20/ERC777ERC20.sol";
 import "./CertificateControllerMock.sol";
-
 
 contract ERC777ERC20Mock is ERC777ERC20, CertificateControllerMock {
 
@@ -9,13 +8,11 @@ contract ERC777ERC20Mock is ERC777ERC20, CertificateControllerMock {
     string name,
     string symbol,
     uint256 granularity,
-    address[] defaultOperators,
+    address[] controllers,
     address certificateSigner
   )
     public
-    ERC777ERC20(name, symbol, granularity, defaultOperators, certificateSigner)
-  {
-  }
-
+    ERC777ERC20(name, symbol, granularity, controllers, certificateSigner)
+  {}
 
 }

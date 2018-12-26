@@ -13,11 +13,11 @@ contract ERC777TokensSenderMock is IERC777TokensSender, ERC820ImplementerMock {
 
   }
 
-  function canSend(
-    bytes32 /*tranche*/,
+  function canTransfer(
+    bytes32 /*partition*/,
     address from,
     address to,
-    uint amount,
+    uint value,
     bytes data,
     bytes /*operatorData*/
   ) // Comments to avoid compilation warnings for unused variables.
@@ -25,40 +25,38 @@ contract ERC777TokensSenderMock is IERC777TokensSender, ERC820ImplementerMock {
     view
     returns(bool)
   {
-    /* if(tranche != hex"00" || operatorData.length != 0){} // Line to avoid compilation warnings for unused variables. */
-
-    return(_canSend(from, to, amount, data));
+    return(_canTransfer(from, to, value, data));
   }
 
-  function tokensToSend(
+  function tokensToTransfer(
     address /*operator*/,
     address from,
     address to,
-    uint amount,
+    uint value,
     bytes data,
     bytes /*operatorData*/
   ) // Comments to avoid compilation warnings for unused variables.
     external
   {
-    require(_canSend(from, to, amount, data), "A5:	Transfer Blocked - Sender not eligible");
+    require(_canTransfer(from, to, value, data), "A5:	Transfer Blocked - Sender not eligible");
   }
 
-  function _canSend(
+  function _canTransfer(
     address /*from*/,
     address /*to*/,
-    uint /*amount*/,
+    uint /*value*/,
     bytes data
   ) // Comments to avoid compilation warnings for unused variables.
     internal
     pure
     returns(bool)
   {
-    bytes32 sendRevert = 0x1100000000000000000000000000000000000000000000000000000000000000; // Default sender hook failure data for the mock only
+    bytes32 transferRevert = 0x1100000000000000000000000000000000000000000000000000000000000000; // Default sender hook failure data for the mock only
     bytes32 data32;
     assembly {
         data32 := mload(add(data, 32))
     }
-    if (data32 == sendRevert) {
+    if (data32 == transferRevert) {
       return false;
     } else {
       return true;

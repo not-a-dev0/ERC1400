@@ -11,10 +11,10 @@ pragma solidity ^0.4.24;
 interface IERC777TokensRecipient {
 
   function canReceive(
-    bytes32 tranche,
+    bytes32 partition,
     address from,
     address to,
-    uint amount,
+    uint value,
     bytes data,
     bytes operatorData
   ) external view returns(bool);
@@ -23,9 +23,9 @@ interface IERC777TokensRecipient {
     address operator,
     address from,
     address to,
-    uint amount,
+    uint value,
     bytes data,
     bytes operatorData
   ) external;
-  
+
 }
