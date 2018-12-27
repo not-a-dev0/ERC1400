@@ -233,7 +233,7 @@ interface IERC1400  {
 
 Test the smart contract, by running the following commands:
 ```
-$ git clone https://gitlab.com/ConsenSys/client/fr/dauriel/securities-smart-contracts.git
+$ git clone git@github.com:ConsenSys/ERC1400.git
 $ cd securities-smart-contracts
 $ make init
 $ make coverage
