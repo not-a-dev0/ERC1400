@@ -24,7 +24,7 @@ This repo contains security token smart contract implementations used by dAuriel
  - Document management.
  - Backwards compatible with ERC20 and ERC777.
 
-# Objective - Financial asset issuance & management.
+## Objective - Financial asset issuance & management.
 
 The current capital market still needs to overcome a few pain points:
  - Today, it is cumbersome and costly to issue an asset.
