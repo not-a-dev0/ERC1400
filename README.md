@@ -1,11 +1,11 @@
 ![dAuriel](images/dAurielLogo.png)
 
-# What is dAuriel?
+## What is dAuriel?
 
 dAuriel is an advanced institutional technology platform for issuing and exchanging tokenized financial assets, powered by the Ethereum blockchain.
 dAuriel is a product created by ConsenSys.
 
-# Content - Security token implementations (ERC777 and ERC1400), adapted for financial asset tokenization.
+## Content - Security token implementations (ERC777 and ERC1400), adapted for financial asset tokenization.
 
 This repo contains security token smart contract implementations used by dAuriel:
 #### ERC777 implementation - Advanced token standard for asset transfers.
@@ -40,7 +40,7 @@ The security token standards contained in this repository, combined to user-frie
 
 ![dAurielInterface](images/dAurielInterface.png)
 
-# Approach - Introduce a new transfer standard to provide issuers with strong control capabilities over their financial assets.
+## Approach - Introduce a new transfer standard to provide issuers with strong control capabilities over their financial assets.
 
 ### Introduction - The limits of ERC20 token standard.
 
@@ -80,7 +80,7 @@ The certificate enables the issuer to perform advanced conditional ownership, si
 
 ![dAurielCertificate](images/dAurielCertificate.png)
 
-# Detailed presentation - Standards description & implementation choices.
+## Detailed presentation - Standards description & implementation choices.
 
 ### ERC777
 
@@ -229,7 +229,7 @@ interface IERC1400  {
 }
 ```
 
-# Quick start.
+## Quick start.
 
 Test the smart contract, by running the following commands:
 ```
