@@ -7,16 +7,19 @@
     "tests"
   ],
   "scripts": {
-    "build:sol": "solcpiler -i './contracts/*.sol' --solc-version=\"v0.4.24+commit.e67f0147\" --output-artifacts-dir artifacts --insert-file-names imports",
-    "build": "npm run clean && npm run build:sol",
+    "build:sol:ERC20": "solcpiler -i './contracts/token/ERC20/*.sol' --solc-version=\"v0.4.24+commit.e67f0147\" --output-artifacts-dir artifacts --insert-file-names imports",
+    "build:sol:ERC777": "solcpiler -i './contracts/token/ERC777/*.sol' --solc-version=\"v0.4.24+commit.e67f0147\" --output-artifacts-dir artifacts --insert-file-names imports",
+    "build:sol:ERC1400": "solcpiler -i './contracts/*.sol' --solc-version=\"v0.4.24+commit.e67f0147\" --output-artifacts-dir artifacts --insert-file-names imports",
+    "build:sol": "yarn run build:sol:ERC1400 && yarn run build:sol:ERC777 && yarn run build:sol:ERC20",
+    "build": "yarn run clean && yarn run build:sol",
     "clean": "rm -rf build artifacts",
     "coverage": "solidity-coverage",
     "lint": "eslint ./migrations ./test ",
     "lint:fix": "eslint ./test ./migrations --fix",
     "lint:sol": "solium -d .",
     "lint:sol:fix": "solium -d . --fix",
-    "lint:all": "npm run lint && npm run lint:sol",
-    "lint:all:fix": "npm run lint:fix && npm run lint:sol:fix",
+    "lint:all": "yarn run lint && yarn run lint:sol",
+    "lint:all:fix": "yarn run lint:fix && yarn run lint:sol:fix",
     "console": "truffle console",
     "version": "scripts/version.js",
     "remix": "python -mwebbrowser http://localhost:8080 && ./node_modules/remix-ide/bin/remix-ide"
@@ -73,7 +76,7 @@
     "solium-plugin-zeppelin": "^0.0.2"
   },
   "dependencies": {
-    "contract-certificate-controller": "git+https://gitlab.com/ConsenSys/client/fr/dauriel/contract-certificate-controller#0d8987b8b5954ac4db4f6ee12a87d225b472b284",
+    "contract-certificate-controller": "git+https://gitlab.com/ConsenSys/client/fr/dauriel/contract-certificate-controller#70e646dceff444076291348e733e70c02accd372",
     "openzeppelin-solidity": "git+https://github.com/OpenZeppelin/openzeppelin-solidity#06e265b38d3e9daeaa7b33f9035c700d6bc0c6a0",
     "erc820": "git+https://github.com/jbaylina/ERC820#6c13a97a5eba73df2a99c3a089c65f7d2df63775",
     "truffle": "^4.1.14",

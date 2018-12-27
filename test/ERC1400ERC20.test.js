@@ -149,9 +149,9 @@ contract('ERC1400ERC20', function ([owner, operator, controller, tokenHolder, re
 
   });
 
-  // BURN
+  // REDEEM
 
-  describe('burn', function () {
+  describe('redeem', function () {
     const redeemAmount = 300;
     beforeEach(async function () {
       await this.token.issueByPartition(partition1, tokenHolder, issuanceAmount, VALID_CERTIFICATE, { from: owner });
@@ -172,7 +172,7 @@ contract('ERC1400ERC20', function ([owner, operator, controller, tokenHolder, re
         assert.equal(logs[0].event, 'Checked');
         assert.equal(logs[0].args.sender, tokenHolder);
 
-        assert.equal(logs[1].event, 'Burned');
+        assert.equal(logs[1].event, 'Redeemed');
         assert.equal(logs[1].args.operator, tokenHolder);
         assert.equal(logs[1].args.from, tokenHolder);
         assert(logs[1].args.value.eq(redeemAmount));
@@ -211,7 +211,7 @@ contract('ERC1400ERC20', function ([owner, operator, controller, tokenHolder, re
         assert.equal(logs[0].event, 'Checked');
         assert.equal(logs[0].args.sender, tokenHolder);
 
-        assert.equal(logs[1].event, 'Burned');
+        assert.equal(logs[1].event, 'Redeemed');
         assert.equal(logs[1].args.operator, tokenHolder);
         assert.equal(logs[1].args.from, tokenHolder);
         assert(logs[1].args.value.eq(redeemAmount));
@@ -229,9 +229,9 @@ contract('ERC1400ERC20', function ([owner, operator, controller, tokenHolder, re
     });
   });
 
-  // MINT
+  // ISSUE
 
-  describe('mint', function () {
+  describe('issue', function () {
     describe('when the ERC20 retrocompatibility is activated', function () {
       beforeEach(async function () {
         await this.token.setERC20compatibility(true, { from: owner });
@@ -250,7 +250,7 @@ contract('ERC1400ERC20', function ([owner, operator, controller, tokenHolder, re
         assert.equal(logs[0].event, 'Checked');
         assert.equal(logs[0].args.sender, owner);
 
-        assert.equal(logs[1].event, 'Minted');
+        assert.equal(logs[1].event, 'Issued');
         assert.equal(logs[1].args.operator, owner);
         assert.equal(logs[1].args.to, tokenHolder);
         assert(logs[1].args.value.eq(issuanceAmount));
@@ -289,7 +289,7 @@ contract('ERC1400ERC20', function ([owner, operator, controller, tokenHolder, re
         assert.equal(logs[0].event, 'Checked');
         assert.equal(logs[0].args.sender, owner);
 
-        assert.equal(logs[1].event, 'Minted');
+        assert.equal(logs[1].event, 'Issued');
         assert.equal(logs[1].args.operator, owner);
         assert.equal(logs[1].args.to, tokenHolder);
         assert(logs[1].args.value.eq(issuanceAmount));

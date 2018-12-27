@@ -230,7 +230,7 @@ contract ERC1400 is IERC1400, ERC1410, MinterRole {
    * @param to Token recipient.
    * @param value Number of tokens to transfer.
    * @param data Information attached to the transfer. [CAN CONTAIN THE DESTINATION PARTITION]
-   * @param operatorData Information attached to the transfer, by the operator.
+   * @param operatorData Information attached to the transfer, by the operator (if any).
    * @return ESC (Ethereum Status Code) following the EIP-1066 standard.
    * @return Additional bytes32 parameter that can be used to define
    * application specific reason codes with additional details (for example the
@@ -278,7 +278,7 @@ contract ERC1400 is IERC1400, ERC1410, MinterRole {
    * @param to Token recipient.
    * @param value Number of tokens to issue.
    * @param data Information attached to the issuance.
-   * @param operatorData Information attached to the issuance, by the operator. [CONTAINS THE CONDITIONAL OWNERSHIP CERTIFICATE]
+   * @param operatorData Information attached to the issuance, by the operator (if any).
    */
   function _issueByPartition(
     bytes32 toPartition,
@@ -290,7 +290,7 @@ contract ERC1400 is IERC1400, ERC1410, MinterRole {
   )
     internal
   {
-    _mint(operator, to, value, data, operatorData);
+    _issue(operator, to, value, data, operatorData);
     _addTokenToPartition(to, toPartition, value);
 
     emit IssuedByPartition(toPartition, operator, to, value, data, operatorData);
@@ -304,7 +304,7 @@ contract ERC1400 is IERC1400, ERC1410, MinterRole {
    * @param from Token holder whose tokens will be redeemed.
    * @param value Number of tokens to redeem.
    * @param data Information attached to the redemption.
-   * @param operatorData Information attached to the redemption, by the operator.
+   * @param operatorData Information attached to the redemption, by the operator (if any).
    */
   function _redeemByPartition(
     bytes32 fromPartition,
@@ -319,7 +319,7 @@ contract ERC1400 is IERC1400, ERC1410, MinterRole {
     require(_balanceOfByPartition[from][fromPartition] >= value, "A4: Transfer Blocked - Sender balance insufficient");
 
     _removeTokenFromPartition(from, fromPartition, value);
-    _burn(operator, from, value, data, operatorData);
+    _redeem(operator, from, value, data, operatorData);
 
     emit RedeemedByPartition(fromPartition, operator, from, value, data, operatorData);
   }
@@ -347,40 +347,30 @@ contract ERC1400 is IERC1400, ERC1410, MinterRole {
 
   /**
    * [NOT MANDATORY FOR ERC1400 STANDARD]
-   * @dev Add a controller for the token.
-   * @param operator Address to set as a controller.
+   * @dev Set list of token controllers.
+   * @param operators Controller addresses.
    */
-  function addController(address operator) external onlyOwner controllableToken {
-    _addController(operator);
+  function setControllers(address[] operators) external onlyOwner {
+    _setControllers(operators);
   }
 
   /**
    * [NOT MANDATORY FOR ERC1400 STANDARD]
-   * @dev Remove controller of the token.
-   * @param operator Address to remove from controllers.
-   */
-  function removeController(address operator) external onlyOwner {
-    _removeController(operator);
-  }
-
-  /**
-   * [NOT MANDATORY FOR ERC1400 STANDARD]
-   * @dev Add a controller for a specific partition of the token.
+   * @dev Set list of token partition controllers.
    * @param partition Name of the partition.
-   * @param operator Address to set as a controller.
+   * @param operators Controller addresses.
    */
-  function addPartitionController(bytes32 partition, address operator) external onlyOwner controllableToken {
-    _addPartitionController(partition, operator);
-  }
+   function setPartitionControllers(bytes32 partition, address[] operators) external onlyOwner {
+     _setPartitionControllers(partition, operators);
+   }
 
-  /**
-   * [NOT MANDATORY FOR ERC1400 STANDARD]
-   * @dev Remove controller of a specific partition of the token.
-   * @param partition Name of the partition.
-   * @param operator Address to set as a controller.
+   /**
+   * @dev Add a certificate signer for the token.
+   * @param operator Address to set as a certificate signer.
+   * @param authorized 'true' if operator shall be accepted as certificate signer, 'false' if not.
    */
-  function removePartitionController(bytes32 partition, address operator) external onlyOwner {
-    _removePartitionController(partition, operator);
+  function setCertificateSigner(address operator, bool authorized) external onlyOwner {
+    _setCertificateSigner(operator, authorized);
   }
 
   /************* ERC1410/ERC777 BACKWARDS RETROCOMPATIBILITY ******************/
@@ -413,7 +403,7 @@ contract ERC1400 is IERC1400, ERC1410, MinterRole {
    * @param value Number of tokens to redeem.
    * @param data Information attached to the redemption, by the token holder. [CONTAINS THE CONDITIONAL OWNERSHIP CERTIFICATE]
    */
-  function burn(uint256 value, bytes data)
+  function redeem(uint256 value, bytes data)
     external
     isValidCertificate(data)
   {
@@ -428,7 +418,7 @@ contract ERC1400 is IERC1400, ERC1410, MinterRole {
    * @param data Information attached to the redemption.
    * @param operatorData Information attached to the redemption, by the operator. [CONTAINS THE CONDITIONAL OWNERSHIP CERTIFICATE]
    */
-  function operatorBurn(address from, uint256 value, bytes data, bytes operatorData)
+  function redeemFrom(address from, uint256 value, bytes data, bytes operatorData)
     external
     isValidCertificate(operatorData)
   {
@@ -446,7 +436,7 @@ contract ERC1400 is IERC1400, ERC1410, MinterRole {
    * @param from Token holder.
    * @param value Number of tokens to redeem.
    * @param data Information attached to the redemption.
-   * @param operatorData Information attached to the redemption, by the operator.
+   * @param operatorData Information attached to the redemption, by the operator (if any).
    */
   function _redeemByDefaultPartitions(
     address operator,

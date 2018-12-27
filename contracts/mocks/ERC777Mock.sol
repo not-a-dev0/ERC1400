@@ -1,9 +1,9 @@
 pragma solidity ^0.4.24;
-import "../token/ERC777/ERC777Mintable.sol";
+import "../token/ERC777/ERC777Issuable.sol";
 import "./CertificateControllerMock.sol";
 
 
-contract ERC777Mock is ERC777Mintable, CertificateControllerMock {
+contract ERC777Mock is ERC777Issuable, CertificateControllerMock {
 
   constructor(
     string name,
@@ -17,20 +17,24 @@ contract ERC777Mock is ERC777Mintable, CertificateControllerMock {
   {
   }
 
-  function addController(address operator) external onlyOwner {
-    _addController(operator);
+  function setControllable(bool _controllable) external onlyOwner {
+    _isControllable = _controllable;
   }
 
-  function removeController(address operator) external onlyOwner {
-    _removeController(operator);
+  function renounceControl() external onlyOwner {
+    _isControllable = false;
+  }
+
+  function setControllers(address[] operators) external onlyOwner {
+    _setControllers(operators);
   }
 
   function isRegularAddress(address adr) external view returns(bool) {
     return _isRegularAddress(adr);
   }
 
-  function operatorBurnMock(address from, uint256 value, bytes data, bytes operatorData) external {
-    _burn(msg.sender, from, value, data, operatorData);
+  function redeemFromMock(address from, uint256 value, bytes data, bytes operatorData) external {
+    _redeem(msg.sender, from, value, data, operatorData);
   }
 
 }

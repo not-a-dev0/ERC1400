@@ -20,24 +20,24 @@ contract('ERC777ERC20', function ([owner, operator, controller, tokenHolder, rec
       await this.token.setERC20compatibility(true, { from: owner });
     });
 
-    // MINT
+    // ISSUE
 
-    describe('mint', function () {
-      describe('when the caller is a minter', function () {
+    describe('issue', function () {
+      describe('when the caller is a issuer', function () {
         describe('when the amount is a multiple of the granularity', function () {
           describe('when the recipient is not the zero address', function () {
-            it('mints the requested amount', async function () {
-              await this.token.mint(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
+            it('issues the requested amount', async function () {
+              await this.token.issue(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
             });
             it('emits a sent event [with ERC20 retrocompatibility]', async function () {
-              const { logs } = await this.token.mint(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
+              const { logs } = await this.token.issue(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
 
               assert.equal(logs.length, 3);
 
               assert.equal(logs[0].event, 'Checked');
               assert.equal(logs[0].args.sender, owner);
 
-              assert.equal(logs[1].event, 'Minted');
+              assert.equal(logs[1].event, 'Issued');
               assert.equal(logs[1].args.operator, owner);
               assert.equal(logs[1].args.to, tokenHolder);
               assert(logs[1].args.value.eq(initialSupply));
@@ -51,14 +51,14 @@ contract('ERC777ERC20', function ([owner, operator, controller, tokenHolder, rec
             });
             it('emits a sent event [without ERC20 retrocompatibility]', async function () {
               await this.token.setERC20compatibility(false, { from: owner });
-              const { logs } = await this.token.mint(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
+              const { logs } = await this.token.issue(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
 
               assert.equal(logs.length, 2);
 
               assert.equal(logs[0].event, 'Checked');
               assert.equal(logs[0].args.sender, owner);
 
-              assert.equal(logs[1].event, 'Minted');
+              assert.equal(logs[1].event, 'Issued');
               assert.equal(logs[1].args.operator, owner);
               assert.equal(logs[1].args.to, tokenHolder);
               assert(logs[1].args.value.eq(initialSupply));
@@ -75,7 +75,7 @@ contract('ERC777ERC20', function ([owner, operator, controller, tokenHolder, rec
     describe('transferWithData', function () {
       const to = recipient;
       beforeEach(async function () {
-        await this.token.mint(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
+        await this.token.issue(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
       });
       describe('when the amount is a multiple of the granularity', function () {
         describe('when the recipient is not the zero address', function () {
@@ -136,32 +136,32 @@ contract('ERC777ERC20', function ([owner, operator, controller, tokenHolder, rec
       });
     });
 
-    // BURN
+    // REDEEM
 
-    describe('burn', function () {
+    describe('redeem', function () {
       beforeEach(async function () {
-        await this.token.mint(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
+        await this.token.issue(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
       });
 
       describe('when the amount is a multiple of the granularity', function () {
-        describe('when the burner has enough balance', function () {
+        describe('when the redeemer has enough balance', function () {
           const amount = initialSupply;
 
-          it('burns the requested amount', async function () {
-            await this.token.burn(amount, VALID_CERTIFICATE, { from: tokenHolder });
+          it('redeems the requested amount', async function () {
+            await this.token.redeem(amount, VALID_CERTIFICATE, { from: tokenHolder });
             const senderBalance = await this.token.balanceOf(tokenHolder);
             assert.equal(senderBalance, initialSupply - amount);
           });
 
-          it('emits a burned event [with ERC20 retrocompatibility]', async function () {
-            const { logs } = await this.token.burn(amount, VALID_CERTIFICATE, { from: tokenHolder });
+          it('emits a redeemed event [with ERC20 retrocompatibility]', async function () {
+            const { logs } = await this.token.redeem(amount, VALID_CERTIFICATE, { from: tokenHolder });
 
             assert.equal(logs.length, 3);
 
             assert.equal(logs[0].event, 'Checked');
             assert.equal(logs[0].args.sender, tokenHolder);
 
-            assert.equal(logs[1].event, 'Burned');
+            assert.equal(logs[1].event, 'Redeemed');
             assert.equal(logs[1].args.operator, tokenHolder);
             assert.equal(logs[1].args.from, tokenHolder);
             assert(logs[1].args.value.eq(amount));
@@ -173,16 +173,16 @@ contract('ERC777ERC20', function ([owner, operator, controller, tokenHolder, rec
             assert.equal(logs[2].args.to, ZERO_ADDRESS);
             assert(logs[2].args.value.eq(amount));
           });
-          it('emits a burned event [without ERC20 retrocompatibility]', async function () {
+          it('emits a redeemed event [without ERC20 retrocompatibility]', async function () {
             await this.token.setERC20compatibility(false, { from: owner });
-            const { logs } = await this.token.burn(amount, VALID_CERTIFICATE, { from: tokenHolder });
+            const { logs } = await this.token.redeem(amount, VALID_CERTIFICATE, { from: tokenHolder });
 
             assert.equal(logs.length, 2);
 
             assert.equal(logs[0].event, 'Checked');
             assert.equal(logs[0].args.sender, tokenHolder);
 
-            assert.equal(logs[1].event, 'Burned');
+            assert.equal(logs[1].event, 'Redeemed');
             assert.equal(logs[1].args.operator, tokenHolder);
             assert.equal(logs[1].args.from, tokenHolder);
             assert(logs[1].args.value.eq(amount));
@@ -257,7 +257,7 @@ contract('ERC777ERC20', function ([owner, operator, controller, tokenHolder, rec
     describe('transfer', function () {
       const to = recipient;
       beforeEach(async function () {
-        await this.token.mint(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
+        await this.token.issue(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
       });
 
       describe('when the ERC20 retrocompatibility is activated', function () {
@@ -315,7 +315,7 @@ contract('ERC777ERC20', function ([owner, operator, controller, tokenHolder, rec
         describe('when the amount is not a multiple of the granularity', function () {
           it('reverts', async function () {
             this.token = await ERC777ERC20.new('ERC777Token', 'DAU', 2, [], CERTIFICATE_SIGNER);
-            await this.token.mint(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
+            await this.token.issue(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
             await shouldFail.reverting(this.token.transfer(to, 3, { from: tokenHolder }));
           });
         });
@@ -336,7 +336,7 @@ contract('ERC777ERC20', function ([owner, operator, controller, tokenHolder, rec
       const to = recipient;
       const approvedAmount = 10000;
       beforeEach(async function () {
-        await this.token.mint(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
+        await this.token.issue(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
       });
 
       describe('when the ERC20 retrocompatibility is activated', function () {
@@ -419,7 +419,7 @@ contract('ERC777ERC20', function ([owner, operator, controller, tokenHolder, rec
           describe('when the amount is not a multiple of the granularity', function () {
             it('reverts', async function () {
               this.token = await ERC777ERC20.new('ERC777Token', 'DAU', 2, [], CERTIFICATE_SIGNER);
-              await this.token.mint(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
+              await this.token.issue(tokenHolder, initialSupply, VALID_CERTIFICATE, { from: owner });
               await shouldFail.reverting(this.token.transferFrom(tokenHolder, to, 3, { from: operator }));
             });
           });
