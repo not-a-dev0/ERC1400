@@ -218,7 +218,7 @@ interface IERC1400  {
     event IssuedByPartition(bytes32 indexed partition, address indexed operator, address indexed to, uint256 value, bytes data, bytes operatorData);
 
     // Token Redemption
-    function redeemByPartition(bytes32 partition, uint256 value, bytes data) external; // 6/9
+    function redeemByPartition(bytes32 partition, uint256 value, bytes data) external;
     function operatorRedeemByPartition(bytes32 partition, address tokenHolder, uint256 value, bytes data, bytes operatorData) external;
     event RedeemedByPartition(bytes32 indexed partition, address indexed operator, address indexed from, uint256 value, bytes data, bytes operatorData);
 
